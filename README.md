@@ -10,5 +10,5 @@ _by Thomas Rieder_
  
  
 ### How to contact me
- * via email: thomas _dot_ rieder _at_ aon _dot_ at
+ * via email: thomasrieder _at_ aon _dot_ at
  * via twitter: [My Profile](https://twitter.com/#!/thomasrieder)
