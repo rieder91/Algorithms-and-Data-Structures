@@ -2,10 +2,9 @@
 _by Thomas Rieder_
 
 ### Done:
- * Nothing yet :-(
+ * AVL trees
 
 ### Pending:
- * AVL trees
  * currently unknown future assignments
  
  
