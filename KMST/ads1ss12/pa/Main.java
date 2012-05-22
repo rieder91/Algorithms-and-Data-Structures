@@ -39,7 +39,7 @@ public class Main {
 	private static boolean dontStop = false;
 
 	/** Test flag f&uuml;r Laufzeit Ausgabe */
-	private static boolean test = false;
+	private static boolean test = true;
 
 	/** Debug flag f&uuml;r zus&auml;tzliche Debug Ausgaben */
 	private static boolean debug = false;
