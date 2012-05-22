@@ -5,7 +5,7 @@ _by Thomas Rieder_
  * AVL trees
 
 ### Pending:
- * currently unknown future assignments
+ * K-Minimal-Spanning-Tree using Branch and Bound
  
  
 ### How to contact me
