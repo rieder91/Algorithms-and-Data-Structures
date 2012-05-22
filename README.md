@@ -3,9 +3,10 @@ _by Thomas Rieder_
 
 ### Done:
  * AVL trees
+ * K-Minimal-Spanning-Tree using Branch and Bound
 
 ### Pending:
- * K-Minimal-Spanning-Tree using Branch and Bound
+ * most likely nothing
  
  
 ### How to contact me
