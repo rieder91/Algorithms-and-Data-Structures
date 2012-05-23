@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.PriorityQueue;
-import java.util.Set;
 
 /**
  * Klasse zum Berechnen eines k-MST mittels Branch-and-Bound. Hier sollen Sie
