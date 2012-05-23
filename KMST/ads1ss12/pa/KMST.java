@@ -119,9 +119,9 @@ public class KMST extends AbstractKMST {
 		for (int i = 0; i < adjc; i++) {
 			// get i-th most desireable edge
 			t = getEdge(node, i + 1, tadj);
-			
+
 			int w = cweight + t.weight;
-			
+
 			// abort the recursion if the weight of the edge set is
 			// higher than the currently known best solution
 			if (t != null && w < minWeight) {
@@ -131,34 +131,30 @@ public class KMST extends AbstractKMST {
 					// adds the new edge to the graph and calculates the new
 					// weight
 					temp.add(new Edge(t.node1, t.node2, t.weight));
-					
-						if (getNodeCount(temp) == k) {
-							// edge set contains k nodes and is a new best
-							// solution
-							updateSolution(temp, w);
+
+					if (getNodeCount(temp) == k) {
+						// edge set contains k nodes and is a new best
+						// solution
+						updateSolution(temp, w);
+					} else {
+						// recursion to add new edges
+						if (getEdge(t.node1, 1, tadj).weight < getEdge(t.node2,
+								1, tadj).weight) {
+							// node1 has a cheaper edge - we follow it first
+							addNodes(temp, removeNode(tadj, t.node1, t.node2),
+									t.node1, w);
+							addNodes(temp, removeNode(tadj, t.node1, t.node2),
+									t.node2, w);
+							tadj = cloneAdj(adj);
 						} else {
-							// recursion to add new edges
-							if (getEdge(t.node1, 1, tadj).weight < getEdge(
-									t.node2, 1, tadj).weight) {
-								// node1 has a cheaper edge - we follow it first
-								addNodes(temp,
-										removeNode(tadj, t.node1, t.node2),
-										t.node1, w);
-								addNodes(temp,
-										removeNode(tadj, t.node1, t.node2),
-										t.node2, w);
-								tadj = cloneAdj(adj);
-							} else {
-								// node2 has a cheaper edge - we follow it first
-								addNodes(temp,
-										removeNode(tadj, t.node1, t.node2),
-										t.node2, w);
-								addNodes(temp,
-										removeNode(tadj, t.node1, t.node2),
-										t.node1, w);
-								tadj = cloneAdj(adj);
-							}
-						}	
+							// node2 has a cheaper edge - we follow it first
+							addNodes(temp, removeNode(tadj, t.node1, t.node2),
+									t.node2, w);
+							addNodes(temp, removeNode(tadj, t.node1, t.node2),
+									t.node1, w);
+							tadj = cloneAdj(adj);
+						}
+					}
 				}
 				if (e != null) {
 					temp = new HashSet<Edge>(e);
