@@ -4,6 +4,7 @@ _by Thomas Rieder_
 ### Done:
  * AVL trees
  * K-Minimal-Spanning-Tree using Branch and Bound
+  * \+ Visualizer-Script using GraphViz
 
 ### Pending:
  * most likely nothing
