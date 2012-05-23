@@ -89,7 +89,7 @@ public class KMST extends AbstractKMST {
 		// builds trees with the first seed being the most desireable node in
 		// the queue
 		for (int i = 0; i < q.size(); i++) {
-			addNodes(null, adjacentMatrix, q.poll().node2);
+			addNodes(null, adjacentMatrix, q.poll().node2, 0);
 		}
 	}
 
@@ -104,7 +104,7 @@ public class KMST extends AbstractKMST {
 	 * @param node
 	 *            node that was added last
 	 */
-	public void addNodes(HashSet<Edge> e, int[][] adj, int node) {
+	public void addNodes(HashSet<Edge> e, int[][] adj, int node, int cweight) {
 		Edge t;
 		HashSet<Edge> temp;
 		int[][] tadj = cloneAdj(adj);
@@ -117,22 +117,22 @@ public class KMST extends AbstractKMST {
 		}
 
 		// iterates over all possible edges that can be appended to the node
-		// @param node
 		for (int i = 0; i < adjc; i++) {
 			// get i-th most desireable edge
 			t = getEdge(node, i + 1, tadj);
-			if (t != null) {
+			
+			int w = cweight + t.weight;
+			
+			// abort the recursion if the weight of the edge set is
+			// higher than the currently known best solution
+			if (t != null && w < minWeight) {
 				// list of all nodes to check for circles
 				ArrayList<Integer> circle = getNodes(temp);
-				if ((!circle.contains(t.node2) || !circle.contains(t.node1))
-						&& t.weight != 0) {
+				if ((!circle.contains(t.node2) || !circle.contains(t.node1))) {
 					// adds the new edge to the graph and calculates the new
 					// weight
 					temp.add(new Edge(t.node1, t.node2, t.weight));
-					int w = getWeight(temp);
-					// abort the recursion if the weight of the edge set is
-					// higher than the currently known best solution
-					if (w < minWeight) {
+					
 						if (getNodeCount(temp) == k) {
 							// edge set contains k nodes and is a new best
 							// solution
@@ -144,34 +144,31 @@ public class KMST extends AbstractKMST {
 								// node1 has a cheaper edge - we follow it first
 								addNodes(temp,
 										removeNode(tadj, t.node1, t.node2),
-										t.node1);
+										t.node1, w);
 								addNodes(temp,
 										removeNode(tadj, t.node1, t.node2),
-										t.node2);
+										t.node2, w);
+								tadj = cloneAdj(adj);
 							} else {
 								// node2 has a cheaper edge - we follow it first
 								addNodes(temp,
 										removeNode(tadj, t.node1, t.node2),
-										t.node2);
+										t.node2, w);
 								addNodes(temp,
 										removeNode(tadj, t.node1, t.node2),
-										t.node1);
+										t.node1, w);
+								tadj = cloneAdj(adj);
 							}
-						}
-					}
+						}	
 				}
 				if (e != null) {
 					temp = new HashSet<Edge>(e);
 				} else {
 					temp = new HashSet<Edge>();
 				}
-
+			} else {
+				i = adjc;
 			}
-			// if the following line is a comment: not all problems are
-			// enumerated
-			// the algorithm finishes faster but DOES NOT find the best possible
-			// solution - only one that is good enough
-			tadj = cloneAdj(adj);
 		}
 	}
 
@@ -185,7 +182,7 @@ public class KMST extends AbstractKMST {
 	 */
 	public void updateSolution(HashSet<Edge> minSet, int min) {
 		minWeight = min;
-		 System.out.println("Neues Gewicht: " + min);
+		System.out.println("New best solution: " + min);
 		setSolution(min, minSet);
 	}
 
@@ -297,24 +294,6 @@ public class KMST extends AbstractKMST {
 			ret.add(temp.node2);
 		}
 		return ret;
-	}
-
-	/**
-	 * return the total weight of a given edge-set
-	 * 
-	 * @param e
-	 *            edge-set
-	 * @return total weight of the edge-set
-	 */
-	public int getWeight(Set<Edge> e) {
-		Iterator<Edge> it = e.iterator();
-		int sum = 0;
-
-		while (it.hasNext()) {
-			sum += it.next().weight;
-		}
-
-		return sum;
 	}
 
 	/**
