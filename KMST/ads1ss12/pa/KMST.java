@@ -1,8 +1,6 @@
 package ads1ss12.pa;
 
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.PriorityQueue;
 
 /**
@@ -38,10 +36,7 @@ public class KMST extends AbstractKMST {
 		this.k = k;
 
 		// Create adjacency matrix
-		Iterator<Edge> it = edges.iterator();
-		Edge t;
-		while (it.hasNext()) {
-			t = it.next();
+		for (Edge t : edges) {
 			adjacentMatrix[t.node1][t.node2] = t.weight;
 			adjacentMatrix[t.node2][t.node1] = t.weight;
 		}
@@ -62,9 +57,9 @@ public class KMST extends AbstractKMST {
 
 		// Performance-Boost xD
 
-		// System.out.println("Adajzent-Matrix: ");
+		// System.out.println("Adjazenzmatrix: ");
 		// print(adjacentMatrix);
-		// System.out.println("Gewicht der besten Lšsung: " + minWeight);
+		// System.out.println("Gewicht der besten Loesung: " + minWeight);
 	}
 
 	/**
@@ -74,8 +69,6 @@ public class KMST extends AbstractKMST {
 	public void constructMST() {
 		PriorityQueue<Edge> q = new PriorityQueue<Edge>();
 		Edge t;
-
-		adjacentMatrix = ToZero(adjacentMatrix);
 
 		// builds a priority queue with the cheapest edge of each node
 		for (int i = 0; i < numNodes; i++) {
@@ -94,7 +87,8 @@ public class KMST extends AbstractKMST {
 
 	/**
 	 * recursive method that add all edges to a node beginning with the
-	 * cheapest. will eventually enerumate all possible solution
+	 * cheapest. will eventually enumerate all possible solution;
+	 * depth-first-search
 	 * 
 	 * @param e
 	 *            edge-set that is being updated
@@ -112,7 +106,7 @@ public class KMST extends AbstractKMST {
 		if (e != null) {
 			temp = new HashSet<Edge>(e);
 		} else {
-			temp = new HashSet<Edge>();
+			temp = new HashSet<Edge>(2 * k);
 		}
 
 		// iterates over all possible edges that can be appended to the node
@@ -126,8 +120,7 @@ public class KMST extends AbstractKMST {
 			// higher than the currently known best solution
 			if (t != null && w < minWeight) {
 				// list of all nodes to check for circles
-				ArrayList<Integer> circle = getNodes(temp);
-				if ((!circle.contains(t.node2) || !circle.contains(t.node1))) {
+				if (!hasCircle(temp, t.node1, t.node2)) {
 					// adds the new edge to the graph and calculates the new
 					// weight
 					temp.add(new Edge(t.node1, t.node2, t.weight));
@@ -159,7 +152,7 @@ public class KMST extends AbstractKMST {
 				if (e != null) {
 					temp = new HashSet<Edge>(e);
 				} else {
-					temp = new HashSet<Edge>();
+					temp = new HashSet<Edge>(2 * k);
 				}
 			} else {
 				i = adjc;
@@ -191,9 +184,7 @@ public class KMST extends AbstractKMST {
 	public int[][] cloneAdj(int[][] adj) {
 		int[][] ret = new int[numNodes][numNodes];
 		for (int i = 0; i < numNodes; i++) {
-			for (int j = 0; j < numNodes; j++) {
-				ret[i][j] = adj[i][j];
-			}
+			System.arraycopy(adj[i], 0, ret[i], 0, numNodes);
 		}
 		return ret;
 	}
@@ -253,12 +244,9 @@ public class KMST extends AbstractKMST {
 	 * @return number of unique nodes
 	 */
 	public int getNodeCount(HashSet<Edge> e) {
-		ArrayList<Integer> nodes = new ArrayList<Integer>();
+		HashSet<Integer> nodes = new HashSet<Integer>();
 		int ret = 0;
-		Iterator<Edge> it = e.iterator();
-		Edge temp;
-		while (it.hasNext()) {
-			temp = it.next();
+		for (Edge temp : e) {
 			if (!nodes.contains(temp.node1)) {
 				nodes.add(temp.node1);
 				ret++;
@@ -272,23 +260,27 @@ public class KMST extends AbstractKMST {
 	}
 
 	/**
-	 * returns an arraylist contains all nodes of the edge set (with duplicates)
+	 * return true if the new edge would create a circle
 	 * 
 	 * @param set
 	 *            edge-set
-	 * @return list of all nodes in the edge-set
+	 * @param no1
+	 *            node 1
+	 * @param no2
+	 *            node 2
+	 * @return true if the node cannot be added
 	 */
-	public ArrayList<Integer> getNodes(HashSet<Edge> set) {
-		ArrayList<Integer> ret = new ArrayList<Integer>();
-		Iterator<Edge> it = set.iterator();
-		Edge temp;
-		while (it.hasNext()) {
-			temp = it.next();
-			// we dont care about duplicates - no .contains(...)
-			ret.add(temp.node1);
-			ret.add(temp.node2);
+	public boolean hasCircle(HashSet<Edge> set, int no1, int no2) {
+		boolean n1 = false, n2 = false;
+		for (Edge temp : set) {
+			if (temp.node1 == no1) {
+				n1 = true;
+			}
+			if (temp.node2 == no2) {
+				n2 = true;
+			}
 		}
-		return ret;
+		return n1 && n2;
 	}
 
 	/**
@@ -300,9 +292,9 @@ public class KMST extends AbstractKMST {
 	public void print(int[][] adj) {
 		for (int i = 0; i < numNodes; i++) {
 			for (int j = 0; j < numNodes; j++) {
-				System.out.print(" " + adj[i][j]);
+				System.out.print(adj[i][j] + " ");
 			}
-			System.out.println(" ");
+			System.out.println("");
 		}
 	}
 
@@ -321,25 +313,6 @@ public class KMST extends AbstractKMST {
 	public int[][] removeNode(int[][] adj, int node, int tNode) {
 		adj[tNode][node] = 0;
 		adj[node][tNode] = 0;
-		return adj;
-	}
-
-	/**
-	 * sets all edges with a cost of 1000 to zero; i assumed that a cost of 100
-	 * means unreachable
-	 * 
-	 * @param adj
-	 *            matrix
-	 * @return matrix without costs of 1000
-	 */
-	public int[][] ToZero(int[][] adj) {
-		for (int i = 0; i < numNodes; i++) {
-			for (int j = 0; j < numNodes; j++) {
-				if (adj[i][j] == 1000) {
-					adj[i][j] = 0;
-				}
-			}
-		}
 		return adj;
 	}
 }
