@@ -6,6 +6,8 @@ import java.util.PriorityQueue;
 /**
  * Klasse zum Berechnen eines k-MST mittels Branch-and-Bound. Hier sollen Sie
  * Ihre L&ouml;sung implementieren.
+ * @author Thomas Rieder, 1125403
+ * @date 2012-05-24 
  */
 public class KMST extends AbstractKMST {
 	private int adjacentMatrix[][];
@@ -15,6 +17,7 @@ public class KMST extends AbstractKMST {
 
 	@SuppressWarnings("unused")
 	private int numEdges; // is never actually used
+	
 
 	/**
 	 * Der Konstruktor. Hier ist die richtige Stelle f&uuml;r die
@@ -119,7 +122,11 @@ public class KMST extends AbstractKMST {
 
 			// abort the recursion if the weight of the edge set is
 			// higher than the currently known best solution
-			if (t != null && w < minWeight) {
+			if (t != null
+					&& w < minWeight
+					&& cheapestEdgeToNode(adj, t.node1 == node ? t.node2
+							: t.node1, temp) >= t.weight) {
+				
 				// adds the new edge to the graph and calculates the new
 				// weight
 				temp.add(t);
@@ -129,7 +136,7 @@ public class KMST extends AbstractKMST {
 					updateSolution(temp, w);
 				} else {
 					// recursion to add new edges
-					if (getCheapestEdge(t.node1, adj).weight < getCheapestEdge(
+					if (getCheapestEdge(t.node1, adj).weight <= getCheapestEdge(
 							t.node2, adj).weight) {
 						// node1 has a cheaper edge - we follow it first
 						adj[t.node1][t.node2] = 0;
@@ -169,7 +176,7 @@ public class KMST extends AbstractKMST {
 	 */
 	public void updateSolution(HashSet<Edge> minSet, int min) {
 		minWeight = min;
-//		System.out.println("New best solution: " + min);
+		// System.out.println("New best solution: " + min);
 		setSolution(min, minSet);
 	}
 
@@ -211,6 +218,12 @@ public class KMST extends AbstractKMST {
 		return ret;
 	}
 
+	/**
+	 * returns a priority queue with all nodes adjacent to @param node
+	 * @param node node
+	 * @param adj adjacency-matrix
+	 * @return priority queue of all edges adjacent to @param node
+	 */
 	public PriorityQueue<Edge> getQueue(int node, int[][] adj) {
 		PriorityQueue<Edge> q = new PriorityQueue<Edge>();
 		for (int i = 0; i < numNodes; i++) {
@@ -244,29 +257,6 @@ public class KMST extends AbstractKMST {
 		return ret;
 	}
 
-	/**
-	 * return true if the new edge would create a circle
-	 * 
-	 * @param set
-	 *            edge-set
-	 * @param no1
-	 *            node 1
-	 * @param no2
-	 *            node 2
-	 * @return true if the node cannot be added
-	 */
-	//	public boolean hasCircle(HashSet<Edge> set, int no1, int no2) {
-	//		boolean n1 = false, n2 = false;
-	//		for (Edge temp : set) {
-	//			if (temp.node1 == no1) {
-	//				n1 = true;
-	//			}
-	//			if (temp.node2 == no2) {
-	//				n2 = true;
-	//			}
-	//		}
-	//		return n1 && n2;
-	//	}
 
 	/**
 	 * Prints the adjacency matrix
@@ -281,5 +271,29 @@ public class KMST extends AbstractKMST {
 			}
 			System.out.println("");
 		}
+	}
+	
+	
+	/**
+	 * returns the cheapest node to a given @param node from the edge-set @param e
+	 * @param adj adjacency-matrix
+	 * @param node target node
+	 * @param e edge-set
+	 * @return cost of the cheapest node
+	 */
+	public int cheapestEdgeToNode(int[][] adj, int node, HashSet<Edge> e) {
+		int ret = Integer.MAX_VALUE;
+		if (node >= 0 && node <= numNodes) {
+			for (Edge t : e) {
+				if (adj[node][t.node1] < ret && adj[node][t.node1] != 0) {
+					ret = adj[node][t.node1];
+				}
+				if (adj[node][t.node2] < ret && adj[node][t.node2] != 0) {
+					ret = adj[node][t.node2];
+				}
+			}
+		}
+
+		return ret;
 	}
 }
