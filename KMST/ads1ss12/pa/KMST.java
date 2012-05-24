@@ -72,7 +72,7 @@ public class KMST extends AbstractKMST {
 
 		// builds a priority queue with the cheapest edge of each node
 		for (int i = 0; i < numNodes; i++) {
-			t = getEdge(i, 1, adjacentMatrix);
+			t = getCheapestEdge(i, adjacentMatrix);
 			if (t != null) {
 				q.add(new Edge(i, -1, t.weight));
 			}
@@ -100,7 +100,7 @@ public class KMST extends AbstractKMST {
 	public void addNodes(HashSet<Edge> e, int[][] adj, int node, int cweight) {
 		Edge t;
 		HashSet<Edge> temp;
-		int[][] tadj = cloneAdj(adj);
+		int w;
 		int adjc = getAdjCount(node, adj);
 
 		if (e != null) {
@@ -109,44 +109,43 @@ public class KMST extends AbstractKMST {
 			temp = new HashSet<Edge>(2 * k);
 		}
 
+		PriorityQueue<Edge> q = getQueue(node, adj);
+
 		// iterates over all possible edges that can be appended to the node
 		for (int i = 0; i < adjc; i++) {
 			// get i-th most desireable edge
-			t = getEdge(node, i + 1, tadj);
-
-			int w = cweight + t.weight;
+			t = q.poll();
+			w = cweight + t.weight;
 
 			// abort the recursion if the weight of the edge set is
 			// higher than the currently known best solution
 			if (t != null && w < minWeight) {
-				// list of all nodes to check for circles
-				if (!hasCircle(temp, t.node1, t.node2)) {
-					// adds the new edge to the graph and calculates the new
-					// weight
-					temp.add(new Edge(t.node1, t.node2, t.weight));
-
-					if (getNodeCount(temp) == k) {
-						// edge set contains k nodes and is a new best
-						// solution
-						updateSolution(temp, w);
+				// adds the new edge to the graph and calculates the new
+				// weight
+				temp.add(t);
+				if (getNodeCount(temp) == k) {
+					// edge set contains k nodes and is a new best
+					// solution
+					updateSolution(temp, w);
+				} else {
+					// recursion to add new edges
+					if (getCheapestEdge(t.node1, adj).weight < getCheapestEdge(
+							t.node2, adj).weight) {
+						// node1 has a cheaper edge - we follow it first
+						adj[t.node1][t.node2] = 0;
+						adj[t.node2][t.node1] = 0;
+						addNodes(temp, adj, t.node1, w);
+						addNodes(temp, adj, t.node2, w);
+						adj[t.node1][t.node2] = t.weight;
+						adj[t.node2][t.node1] = t.weight;
 					} else {
-						// recursion to add new edges
-						if (getEdge(t.node1, 1, tadj).weight < getEdge(t.node2,
-								1, tadj).weight) {
-							// node1 has a cheaper edge - we follow it first
-							addNodes(temp, removeNode(tadj, t.node1, t.node2),
-									t.node1, w);
-							addNodes(temp, removeNode(tadj, t.node1, t.node2),
-									t.node2, w);
-							tadj = cloneAdj(adj);
-						} else {
-							// node2 has a cheaper edge - we follow it first
-							addNodes(temp, removeNode(tadj, t.node1, t.node2),
-									t.node2, w);
-							addNodes(temp, removeNode(tadj, t.node1, t.node2),
-									t.node1, w);
-							tadj = cloneAdj(adj);
-						}
+						// node2 has a cheaper edge - we follow it first
+						adj[t.node1][t.node2] = 0;
+						adj[t.node2][t.node1] = 0;
+						addNodes(temp, adj, t.node2, w);
+						addNodes(temp, adj, t.node1, w);
+						adj[t.node1][t.node2] = t.weight;
+						adj[t.node2][t.node1] = t.weight;
 					}
 				}
 				if (e != null) {
@@ -170,23 +169,8 @@ public class KMST extends AbstractKMST {
 	 */
 	public void updateSolution(HashSet<Edge> minSet, int min) {
 		minWeight = min;
-		System.out.println("New best solution: " + min);
+//		System.out.println("New best solution: " + min);
 		setSolution(min, minSet);
-	}
-
-	/**
-	 * Clones an adjacency matrix
-	 * 
-	 * @param adj
-	 *            input matrix
-	 * @return cloned matrix
-	 */
-	public int[][] cloneAdj(int[][] adj) {
-		int[][] ret = new int[numNodes][numNodes];
-		for (int i = 0; i < numNodes; i++) {
-			System.arraycopy(adj[i], 0, ret[i], 0, numNodes);
-		}
-		return ret;
 	}
 
 	/**
@@ -209,31 +193,32 @@ public class KMST extends AbstractKMST {
 	}
 
 	/**
-	 * returns the cnt'th most desireable edge (n'th cheapest)
+	 * returns the most desireable edge adjacent to @param node
 	 * 
 	 * @param node
 	 *            from-node
-	 * @param cnt
-	 *            n-th best edge
 	 * @param adj
 	 *            adjacency matrix
-	 * @return n-th cheapest edge
+	 * @return cheapest edge
 	 */
-	public Edge getEdge(int node, int cnt, int[][] adj) {
+	public Edge getCheapestEdge(int node, int[][] adj) {
+		Edge ret = null;
+		for (int i = 0; i < numNodes; i++) {
+			if (adj[node][i] != 0) {
+				ret = new Edge(node, i, adj[node][i]);
+			}
+		}
+		return ret;
+	}
+
+	public PriorityQueue<Edge> getQueue(int node, int[][] adj) {
 		PriorityQueue<Edge> q = new PriorityQueue<Edge>();
 		for (int i = 0; i < numNodes; i++) {
 			if (adj[node][i] != 0) {
 				q.add(new Edge(node, i, adj[node][i]));
 			}
 		}
-
-		Edge ret = null;
-		for (int i = 0; i < cnt; i++) {
-			ret = q.poll();
-		}
-
-		return ret;
-
+		return q;
 	}
 
 	/**
@@ -270,18 +255,18 @@ public class KMST extends AbstractKMST {
 	 *            node 2
 	 * @return true if the node cannot be added
 	 */
-	public boolean hasCircle(HashSet<Edge> set, int no1, int no2) {
-		boolean n1 = false, n2 = false;
-		for (Edge temp : set) {
-			if (temp.node1 == no1) {
-				n1 = true;
-			}
-			if (temp.node2 == no2) {
-				n2 = true;
-			}
-		}
-		return n1 && n2;
-	}
+	//	public boolean hasCircle(HashSet<Edge> set, int no1, int no2) {
+	//		boolean n1 = false, n2 = false;
+	//		for (Edge temp : set) {
+	//			if (temp.node1 == no1) {
+	//				n1 = true;
+	//			}
+	//			if (temp.node2 == no2) {
+	//				n2 = true;
+	//			}
+	//		}
+	//		return n1 && n2;
+	//	}
 
 	/**
 	 * Prints the adjacency matrix
@@ -296,23 +281,5 @@ public class KMST extends AbstractKMST {
 			}
 			System.out.println("");
 		}
-	}
-
-	/**
-	 * Removes the edge between two nodes from the adjacency-matrix
-	 * 
-	 * @param adj
-	 *            adjacency matrix
-	 * @param node
-	 *            node 1
-	 * @param tNode
-	 *            node 2
-	 * @return adjacency matrix without the edge from @param node to @param
-	 *         tNode
-	 */
-	public int[][] removeNode(int[][] adj, int node, int tNode) {
-		adj[tNode][node] = 0;
-		adj[node][tNode] = 0;
-		return adj;
 	}
 }
