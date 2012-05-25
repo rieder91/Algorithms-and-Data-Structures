@@ -38,7 +38,7 @@ public class Main {
 	 * Mit diesem flag kann verhindert werden, dass der Thread nach Ablauf der
 	 * Zeit beendet wird.
 	 */
-	private static boolean dontStop = true;
+	private static boolean dontStop = false;
 
 	/** Test flag f&uuml;r Laufzeit Ausgabe */
 	private static boolean test = true;
