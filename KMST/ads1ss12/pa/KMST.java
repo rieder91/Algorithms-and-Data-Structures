@@ -1,23 +1,35 @@
 package ads1ss12.pa;
 
+import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.PriorityQueue;
 
 /**
  * Klasse zum Berechnen eines k-MST mittels Branch-and-Bound. Hier sollen Sie
  * Ihre L&ouml;sung implementieren.
+ * 
  * @author Thomas Rieder, 1125403
- * @date 2012-05-24 
+ * @date 2012-05-25
+ * @version 1.0
  */
 public class KMST extends AbstractKMST {
+	private ArrayList<Edge>[] edgesFromNode;
+	private HashSet<HashSet<Edge>> visited;
 	private int adjacentMatrix[][];
+	private int[] minSum;
 	private int numNodes;
+	private int numEdges;
 	private int k;
 	private int minWeight = Integer.MAX_VALUE;
 
-	@SuppressWarnings("unused")
-	private int numEdges; // is never actually used
-	
+	// Debugging
+	// private long start = System.currentTimeMillis();
+	// private int callsNodes = 0;
+	// private int callsAddQueue = 0;
+	// private int callshasnocircle = 0;
+	// private int callsupdatesolution = 0;
 
 	/**
 	 * Der Konstruktor. Hier ist die richtige Stelle f&uuml;r die
@@ -32,16 +44,40 @@ public class KMST extends AbstractKMST {
 	 * @param k
 	 *            Die Anzahl der Knoten, die Ihr MST haben soll
 	 */
+	@SuppressWarnings("unchecked")
 	public KMST(Integer numNodes, Integer numEdges, HashSet<Edge> edges, int k) {
 		this.adjacentMatrix = new int[numNodes][numNodes];
 		this.numNodes = numNodes;
 		this.numEdges = numEdges;
 		this.k = k;
+		this.visited = new HashSet<HashSet<Edge>>(numEdges);
+		this.minSum = new int[k + 2];
+		this.edgesFromNode = new ArrayList[numNodes];
 
-		// Create adjacency matrix
+		// PriorityQueue for the k cheapest edges
+		PriorityQueue<Edge> min = new PriorityQueue<Edge>(numNodes);
+
+		// Create data structures
 		for (Edge t : edges) {
 			adjacentMatrix[t.node1][t.node2] = t.weight;
 			adjacentMatrix[t.node2][t.node1] = t.weight;
+			if (edgesFromNode[t.node1] == null) {
+				edgesFromNode[t.node1] = new ArrayList<Edge>(numNodes);
+			}
+			if (edgesFromNode[t.node2] == null) {
+				edgesFromNode[t.node2] = new ArrayList<Edge>(numNodes);
+			}
+			edgesFromNode[t.node1].add(t);
+			edgesFromNode[t.node2].add(t);
+			min.add(t);
+		}
+
+		// i use the sum of the k - |V| cheapest edges to determine if a given
+		// graph could ever be better than the minWeight
+		minSum[0] = 0;
+		minSum[1] = 0;
+		for (int i = 2; i < k + 2; i++) {
+			minSum[i] = minSum[i - 1] + min.poll().weight;
 		}
 	}
 
@@ -58,110 +94,278 @@ public class KMST extends AbstractKMST {
 	public void run() {
 		constructMST();
 
-		// Performance-Boost xD
-
+		// Debugging
+		// System.out.println("Number of function calls: ");
+		// System.out.println("addNodes: " + callsNodes);
+		// System.out.println("HasNoCircle: " + callshasnocircle);
+		// System.out.println("UpdateSolution: " + callsupdatesolution);
+		// System.out.println("addQueue: " + callsAddQueue);
 		// System.out.println("Adjazenzmatrix: ");
 		// print(adjacentMatrix);
-		// System.out.println("Gewicht der besten Loesung: " + minWeight);
 	}
 
 	/**
-	 * builds the mst with the first seed node being the node with the cheapest
-	 * edge
+	 * builds the mst with the first seed node being the node with the smallest
+	 * sum of edge-costs
 	 */
 	public void constructMST() {
-		PriorityQueue<Edge> q = new PriorityQueue<Edge>();
-		Edge t;
+		PriorityQueue<Edge> q = new PriorityQueue<Edge>(numNodes);
+		int t;
 
-		// builds a priority queue with the cheapest edge of each node
+		// adds the sums of all nodes to the PriorityQueue
 		for (int i = 0; i < numNodes; i++) {
-			t = getCheapestEdge(i, adjacentMatrix);
-			if (t != null) {
-				q.add(new Edge(i, -1, t.weight));
+			t = getBestEdge(i);
+			if (t != Integer.MAX_VALUE) {
+				q.add(new Edge(i, -1, t));
 			}
 		}
 
-		// builds trees with the first seed being the most desireable node in
-		// the queue
-		for (int i = 0; i < q.size(); i++) {
-			addNodes(null, adjacentMatrix, q.poll().node2, 0);
+		// estimate to determine a good upper bound
+		// no backtracking
+		for (Edge e : q) {
+			firstEstimate(new HashSet<Edge>(k), e.node2, 0,
+					new PriorityQueue<Edge>(numEdges), new BitSet(numNodes));
+		}
+
+		// beginning with the best node it enumerates all possible solutions
+		// (branch) and cuts if the graph is useless
+		for (Edge e : q) {
+			addNodes(null, e.node2, 0, null, new BitSet(numNodes));
 		}
 	}
 
 	/**
-	 * recursive method that add all edges to a node beginning with the
-	 * cheapest. will eventually enumerate all possible solution;
-	 * depth-first-search
+	 * Returns the sum of all edges adjacent to a node
+	 * 
+	 * @param node
+	 *            Node of which the edge-sum is calculated
+	 * @return sum of the edge-costs
+	 */
+	public int getBestEdge(int node) {
+		int ret = 0;
+		for (Edge e : edgesFromNode[node]) {
+			ret += e.weight;
+		}
+		return ret;
+
+	}
+
+	/**
+	 * true if there would be no circle if @param node1 and @param node2 were
+	 * added
+	 * 
+	 * @param used
+	 *            bitset of all nodes used in the current solution
+	 * @param node1
+	 *            Node 1
+	 * @param node2
+	 *            Node 2
+	 * @return true if the two nodes would not create a loop
+	 */
+	public boolean hasNoCircle(BitSet used, int node1, int node2) {
+		// callshasnocircle++;
+		if (used.get(node1) && used.get(node2)) {
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * always adds the cheapest edge to a given graph and stops if k nodes are
+	 * reached; only checks for circles - no heuristics
 	 * 
 	 * @param e
-	 *            edge-set that is being updated
-	 * @param adj
-	 *            adjacency-matrix
+	 *            edge-set
 	 * @param node
-	 *            node that was added last
+	 *            seed-node
+	 * @param cweight
+	 *            current weight
+	 * @param p
+	 *            priorityqueue with all edges to be added
+	 * @param used
+	 *            bitset of all used nodes in the current solution
 	 */
-	public void addNodes(HashSet<Edge> e, int[][] adj, int node, int cweight) {
+	public void firstEstimate(HashSet<Edge> e, int node, int cweight,
+			PriorityQueue<Edge> p, BitSet used) {
 		Edge t;
-		HashSet<Edge> temp;
-		int w;
-		int adjc = getAdjCount(node, adj);
+		int w, newNode;
+		boolean abort = false, wasEmpty, solutionFound;
 
-		if (e != null) {
-			temp = new HashSet<Edge>(e);
-		} else {
-			temp = new HashSet<Edge>(2 * k);
-		}
+		// adds to elements to the edge-queue
+		addToQueue(p, node, used, cweight);
 
-		PriorityQueue<Edge> q = getQueue(node, adj);
+		while (!p.isEmpty() && !abort) {
+			t = p.poll();
 
-		// iterates over all possible edges that can be appended to the node
-		for (int i = 0; i < adjc; i++) {
-			// get i-th most desireable edge
-			t = q.poll();
-			w = cweight + t.weight;
+			// if a given node has a higher weight than minWeight we can ignore
+			// it entirely
+			if (t.weight >= minWeight) {
+				edgesFromNode[t.node1].remove(edgesFromNode[t.node1]
+						.get(t.node2));
+				edgesFromNode[t.node2].remove(edgesFromNode[t.node2]
+						.get(t.node1));
+			} else {
+				w = cweight + t.weight;
 
-			// abort the recursion if the weight of the edge set is
-			// higher than the currently known best solution
-			if (t != null
-					&& w < minWeight
-					&& cheapestEdgeToNode(adj, t.node1 == node ? t.node2
-							: t.node1, temp) >= t.weight) {
-				
-				// adds the new edge to the graph and calculates the new
-				// weight
-				temp.add(t);
-				if (getNodeCount(temp) == k) {
-					// edge set contains k nodes and is a new best
-					// solution
-					updateSolution(temp, w);
-				} else {
-					// recursion to add new edges
-					if (getCheapestEdge(t.node1, adj).weight <= getCheapestEdge(
-							t.node2, adj).weight) {
-						// node1 has a cheaper edge - we follow it first
-						adj[t.node1][t.node2] = 0;
-						adj[t.node2][t.node1] = 0;
-						addNodes(temp, adj, t.node1, w);
-						addNodes(temp, adj, t.node2, w);
-						adj[t.node1][t.node2] = t.weight;
-						adj[t.node2][t.node1] = t.weight;
+				// circle check
+				if (hasNoCircle(used, t.node1, t.node2)) {
+					// make sure to quit the loop
+					abort = true;
+
+					if (used.get(t.node1)) {
+						// node1 is already in use => node2 is new
+						newNode = t.node2;
+						node = t.node1;
 					} else {
-						// node2 has a cheaper edge - we follow it first
-						adj[t.node1][t.node2] = 0;
-						adj[t.node2][t.node1] = 0;
-						addNodes(temp, adj, t.node2, w);
-						addNodes(temp, adj, t.node1, w);
-						adj[t.node1][t.node2] = t.weight;
-						adj[t.node2][t.node1] = t.weight;
+						newNode = t.node1;
+						node = t.node2;
+					}
+
+					e.add(t);
+
+					wasEmpty = false;
+					solutionFound = false;
+
+					if (used.isEmpty()) {
+						// first edge
+						used.set(newNode);
+						used.set(node);
+						wasEmpty = true;
+					} else {
+						used.set(newNode);
+					}
+
+					// if |V| = k and the solution is better than minWeight, we
+					// update our best solution
+					if (used.cardinality() == k && w < minWeight) {
+						updateSolution(e, w);
+					} else {
+						// we need to add more edges
+						firstEstimate(e, newNode, w, p, used);
+					}
+					// removes the used nodes
+					if (!solutionFound) {
+						used.clear(newNode);
+						if (wasEmpty) {
+							used.clear(node);
+						}
 					}
 				}
-				if (e != null) {
-					temp = new HashSet<Edge>(e);
-				} else {
-					temp = new HashSet<Edge>(2 * k);
+			}
+		}
+	}
+
+	/**
+	 * Main algorithm; Starting from a seed node it expands to the cheapest edge
+	 * that can be connected to the graph. It cuts the enumeration tree if the
+	 * weight is too high. Uses Backtracking.
+	 * 
+	 * @param e
+	 *            edge-set
+	 * @param node
+	 *            seed-node
+	 * @param cweight
+	 *            current weight
+	 * @param p
+	 *            priorityqueue with all edges that can be added to the graph
+	 * @param used
+	 *            bitset of all used nodes
+	 */
+	public void addNodes(HashSet<Edge> e, int node, int cweight,
+			PriorityQueue<Edge> p, BitSet used) {
+
+		// callsNodes++;
+
+		Edge t;
+		HashSet<Edge> temp = new HashSet<Edge>(k);
+		int w, newNode, size;
+		boolean wasEmpty, solutionFound;
+
+		// clone
+		if (p != null) {
+			p = new PriorityQueue<Edge>(p);
+		} else {
+			p = new PriorityQueue<Edge>(numEdges);
+		}
+
+		if (used != null) {
+			used = (BitSet) used.clone();
+		}
+
+		if (e != null) {
+			temp.addAll(e);
+		}
+
+		// expand node
+		addToQueue(p, node, used, cweight);
+
+		while (!p.isEmpty()) {
+			t = p.poll();
+			w = cweight + t.weight;
+
+			// if the weight of the current graph plus the weight of the (k -
+			// |V|) cheapest edges is greater than minWeight, we can abort. we
+			// also stop enumerating if the current graph has been expanded
+			// before
+			if (w + minSum[k - used.cardinality()] < minWeight
+					&& !visited.contains(temp)) {
+				// circle check
+				if (hasNoCircle(used, t.node1, t.node2)) {
+					if (used.get(t.node1)) {
+						// node1 is part of the graph => node2 is new
+						newNode = t.node2;
+						node = t.node1;
+					} else {
+						newNode = t.node1;
+						node = t.node2;
+					}
+
+					temp.add(t);
+
+					wasEmpty = false;
+					solutionFound = false;
+					if (used.isEmpty()) {
+						// first edge
+						used.set(newNode);
+						used.set(node);
+						wasEmpty = true;
+					} else {
+						used.set(newNode);
+					}
+
+					// number of used nodes
+					size = used.cardinality();
+
+					if (size == k) {
+						// new best solution found
+						updateSolution(temp, w);
+						solutionFound = true;
+					} else {
+						// we need to expand more
+						addNodes(temp, newNode, w, p, used);
+
+						// if the graph contains more than 2 and less than k
+						// nodes we save it to prevent the repeated enumeration
+						// of the same solutions
+						if (size >= 2 && size < k) {
+							visited.add(temp);
+						}
+
+						temp = new HashSet<Edge>(k);
+						if (e != null) {
+							temp.addAll(e);
+						}
+					}
+					// clear nodes
+					if (!solutionFound) {
+						used.clear(newNode);
+						if (wasEmpty) {
+							used.clear(node);
+						}
+					}
 				}
 			} else {
-				i = adjc;
+				p.clear();
 			}
 		}
 	}
@@ -175,88 +379,43 @@ public class KMST extends AbstractKMST {
 	 *            new weight
 	 */
 	public void updateSolution(HashSet<Edge> minSet, int min) {
+		// callsupdatesolution++;
 		minWeight = min;
-		// System.out.println("New best solution: " + min);
+		// System.out.println(System.currentTimeMillis() - start + "ms - " +
+		// min);
 		setSolution(min, minSet);
 	}
 
 	/**
-	 * returns the number of nodes adjacent to @param node
-	 * 
-	 * @param node
-	 *            node
-	 * @param adj
-	 *            adjacency matrix
-	 * @return number of adjacent nodes
-	 */
-	public int getAdjCount(int node, int[][] adj) {
-		int ret = 0;
-		for (int i = 0; i < numNodes; i++) {
-			if (adj[node][i] != 0) {
-				ret++;
-			}
-		}
-		return ret;
-	}
-
-	/**
-	 * returns the most desireable edge adjacent to @param node
-	 * 
-	 * @param node
-	 *            from-node
-	 * @param adj
-	 *            adjacency matrix
-	 * @return cheapest edge
-	 */
-	public Edge getCheapestEdge(int node, int[][] adj) {
-		Edge ret = null;
-		for (int i = 0; i < numNodes; i++) {
-			if (adj[node][i] != 0) {
-				ret = new Edge(node, i, adj[node][i]);
-			}
-		}
-		return ret;
-	}
-
-	/**
-	 * returns a priority queue with all nodes adjacent to @param node
-	 * @param node node
-	 * @param adj adjacency-matrix
-	 * @return priority queue of all edges adjacent to @param node
-	 */
-	public PriorityQueue<Edge> getQueue(int node, int[][] adj) {
-		PriorityQueue<Edge> q = new PriorityQueue<Edge>();
-		for (int i = 0; i < numNodes; i++) {
-			if (adj[node][i] != 0) {
-				q.add(new Edge(node, i, adj[node][i]));
-			}
-		}
-		return q;
-	}
-
-	/**
-	 * Returns the number of unique nodes in an edge-set
+	 * adds all valid edges from @param node to the priorityqueue
 	 * 
 	 * @param e
-	 *            edge-set
-	 * @return number of unique nodes
+	 *            current todo-edge-list
+	 * @param node
+	 *            node that is to be expanded
+	 * @param used
+	 *            bitset of used nodes
+	 * @param w
+	 *            current weight
 	 */
-	public int getNodeCount(HashSet<Edge> e) {
-		HashSet<Integer> nodes = new HashSet<Integer>();
-		int ret = 0;
-		for (Edge temp : e) {
-			if (!nodes.contains(temp.node1)) {
-				nodes.add(temp.node1);
-				ret++;
-			}
-			if (!nodes.contains(temp.node2)) {
-				nodes.add(temp.node2);
-				ret++;
+	public void addToQueue(PriorityQueue<Edge> e, int node, BitSet used, int w) {
+		// callsAddQueue++;
+
+		// we iterate through all adjacent nodes using the adjacency list
+		Edge ite;
+		Iterator<Edge> it = edgesFromNode[node].iterator();
+		while (it.hasNext()) {
+			ite = it.next();
+			// if the expaning node == ite.node1 we check if node2 is used to
+			// prevent a circle and vice verca; the weight of the current graph
+			// + the weight of a possible edge also has to be < minWeight; we
+			// also do not allow duplicates in the todo-edge-list
+			if (!used.get(node == ite.node1 ? ite.node2 : ite.node1)
+					&& w + ite.weight < minWeight && !e.contains(ite)) {
+				e.offer(ite);
 			}
 		}
-		return ret;
 	}
-
 
 	/**
 	 * Prints the adjacency matrix
@@ -272,28 +431,5 @@ public class KMST extends AbstractKMST {
 			System.out.println("");
 		}
 	}
-	
-	
-	/**
-	 * returns the cheapest node to a given @param node from the edge-set @param e
-	 * @param adj adjacency-matrix
-	 * @param node target node
-	 * @param e edge-set
-	 * @return cost of the cheapest node
-	 */
-	public int cheapestEdgeToNode(int[][] adj, int node, HashSet<Edge> e) {
-		int ret = Integer.MAX_VALUE;
-		if (node >= 0 && node <= numNodes) {
-			for (Edge t : e) {
-				if (adj[node][t.node1] < ret && adj[node][t.node1] != 0) {
-					ret = adj[node][t.node1];
-				}
-				if (adj[node][t.node2] < ret && adj[node][t.node2] != 0) {
-					ret = adj[node][t.node2];
-				}
-			}
-		}
 
-		return ret;
-	}
 }
