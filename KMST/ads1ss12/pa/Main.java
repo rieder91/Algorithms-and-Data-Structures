@@ -27,8 +27,8 @@ public class Main {
 	 * Der Name der Datei, aus der die Testinstanz auszulesen ist. Ist <code>
 	 * null</code>, wenn von {@link System#in} eingelesen wird.
 	 */
-	private static String fileName = null;
-//	private static String fileName = "tests/input/0004";
+//	private static String fileName = null;
+	private static String fileName = "tests/input/0003";
 
 	/** Der abgeschnittene Pfad */
 	private static String choppedFileName;
