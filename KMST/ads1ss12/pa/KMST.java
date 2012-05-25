@@ -1,7 +1,9 @@
 package ads1ss12.pa;
 
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.PriorityQueue;
 
 /**
@@ -10,22 +12,25 @@ import java.util.PriorityQueue;
  * 
  * @author Thomas Rieder, 1125403
  * @date 2012-05-25
- * @version 0.7
+ * @version 0.8
  */
 public class KMST extends AbstractKMST {
+	private ArrayList<Edge>[] edgesFromNode;
+	private HashSet<HashSet<Edge>> visited;
 	private int adjacentMatrix[][];
+	private int[] minSum;
 	private int numNodes;
+	private int numEdges;
 	private int k;
 	private int minWeight = Integer.MAX_VALUE;
 
-	private HashSet<HashSet<Edge>> visited;
+	// Debugging
+	// private long start = System.currentTimeMillis();
 
-	private int numEdges;
-//	private long start = System.currentTimeMillis();
-//	private int callsNodes = 0;
-//	private int callsAddQueue = 0;
-//	private int callshasnocircle = 0;
-//	private int callsupdatesolution = 0;
+	// private int callsNodes = 0;
+	// private int callsAddQueue = 0;
+	// private int callshasnocircle = 0;
+	// private int callsupdatesolution = 0;
 
 	/**
 	 * Der Konstruktor. Hier ist die richtige Stelle f&uuml;r die
@@ -40,17 +45,37 @@ public class KMST extends AbstractKMST {
 	 * @param k
 	 *            Die Anzahl der Knoten, die Ihr MST haben soll
 	 */
+	@SuppressWarnings("unchecked")
 	public KMST(Integer numNodes, Integer numEdges, HashSet<Edge> edges, int k) {
 		this.adjacentMatrix = new int[numNodes][numNodes];
 		this.numNodes = numNodes;
 		this.numEdges = numEdges;
 		this.k = k;
 		this.visited = new HashSet<HashSet<Edge>>(numEdges);
+		this.minSum = new int[k + 2];
+		this.edgesFromNode = new ArrayList[numNodes];
 
-		// Create adjacency matrix
+		PriorityQueue<Edge> min = new PriorityQueue<Edge>(numNodes);
+
+		// Create data structures
 		for (Edge t : edges) {
 			adjacentMatrix[t.node1][t.node2] = t.weight;
 			adjacentMatrix[t.node2][t.node1] = t.weight;
+			if (edgesFromNode[t.node1] == null) {
+				edgesFromNode[t.node1] = new ArrayList<Edge>(numNodes);
+			}
+			if (edgesFromNode[t.node2] == null) {
+				edgesFromNode[t.node2] = new ArrayList<Edge>(numNodes);
+			}
+			edgesFromNode[t.node1].add(t);
+			edgesFromNode[t.node2].add(t);
+			min.add(t);
+		}
+
+		minSum[0] = 0;
+		minSum[1] = 0;
+		for (int i = 2; i < k + 2; i++) {
+			minSum[i] = minSum[i - 1] + min.poll().weight;
 		}
 	}
 
@@ -67,11 +92,11 @@ public class KMST extends AbstractKMST {
 	public void run() {
 		constructMST();
 
-//		System.out.println("Number of function calls: ");
-//		System.out.println("addNodes: " + callsNodes);
-//		System.out.println("HasNoCircle: " + callshasnocircle);
-//		System.out.println("UpdateSolution: " + callsupdatesolution);
-//		System.out.println("addQueue: " + callsAddQueue);
+		// System.out.println("Number of function calls: ");
+		// System.out.println("addNodes: " + callsNodes);
+		// System.out.println("HasNoCircle: " + callshasnocircle);
+		// System.out.println("UpdateSolution: " + callsupdatesolution);
+		// System.out.println("addQueue: " + callsAddQueue);
 		// System.out.println("Adjazenzmatrix: ");
 		// print(adjacentMatrix);
 		// System.out.println("Gewicht der besten Loesung: " + minWeight);
@@ -85,59 +110,56 @@ public class KMST extends AbstractKMST {
 		PriorityQueue<Edge> q = new PriorityQueue<Edge>(numNodes);
 		int t;
 
-		// builds a priority queue with the cheapest edge of each node
 		for (int i = 0; i < numNodes; i++) {
-			// t = getCheapestEdge(i, adjacentMatrix);
-			t = getBestEdge(i, adjacentMatrix);
+			t = getBestEdge(i);
 			if (t != Integer.MAX_VALUE) {
 				q.add(new Edge(i, -1, t));
 			}
 		}
 
 		for (Edge e : q) {
-			firstEstimate(new HashSet<Edge>(k), adjacentMatrix, e.node2, 0,
+			firstEstimate(new HashSet<Edge>(k), e.node2, 0,
 					new PriorityQueue<Edge>(numEdges), new BitSet(numNodes));
 		}
 
-		// System.out.println("enum");
-
 		for (Edge e : q) {
-			addNodes(null, adjacentMatrix, e.node2, 0, null, new BitSet(
-					numNodes));
+			addNodes(null, e.node2, 0, null, new BitSet(numNodes));
 		}
 	}
 
-	public int getBestEdge(int node, int[][] adjacentMatrix) {
+	public int getBestEdge(int node) {
 		int ret = 0;
-		for (int i = 0; i < numNodes; i++) {
-			ret += adjacentMatrix[node][i];
+		for (Edge e : edgesFromNode[node]) {
+			ret += e.weight;
 		}
 		return ret;
 
 	}
 
 	public boolean hasNoCircle(BitSet used, int node1, int node2) {
-//		callshasnocircle++;
+		// callshasnocircle++;
 		if (used.get(node1) && used.get(node2)) {
 			return false;
 		}
 		return true;
 	}
 
-	public void firstEstimate(HashSet<Edge> e, int[][] adj, int node,
-			int cweight, PriorityQueue<Edge> p, BitSet used) {
+	public void firstEstimate(HashSet<Edge> e, int node, int cweight,
+			PriorityQueue<Edge> p, BitSet used) {
 		Edge t;
-		int w, newNode, size;
+		int w, newNode;
 		boolean abort = false, wasEmpty, solutionFound;
 
-		addToQueue(p, node, adj, used, cweight);
+		addToQueue(p, node, used, cweight);
 
 		while (!p.isEmpty() && !abort) {
 			t = p.poll();
 
-			if (t.weight > minWeight) {
-				adjacentMatrix[t.node1][t.node2] = 0;
-				adjacentMatrix[t.node2][t.node1] = 0;
+			if (t.weight >= minWeight) {
+				edgesFromNode[t.node1].remove(edgesFromNode[t.node1]
+						.get(t.node2));
+				edgesFromNode[t.node2].remove(edgesFromNode[t.node2]
+						.get(t.node1));
 			} else {
 				w = cweight + t.weight;
 				if (hasNoCircle(used, t.node1, t.node2)) {
@@ -162,14 +184,10 @@ public class KMST extends AbstractKMST {
 					}
 					abort = true;
 
-					size = used.cardinality();
-
-					if (size == k) {
-						if (w < minWeight) {
-							updateSolution(e, w);
-						}
+					if (used.cardinality() == k && w < minWeight) {
+						updateSolution(e, w);
 					} else {
-						firstEstimate(e, adj, newNode, w, p, used);
+						firstEstimate(e, newNode, w, p, used);
 					}
 
 					if (!solutionFound) {
@@ -183,10 +201,10 @@ public class KMST extends AbstractKMST {
 		}
 	}
 
-	public void addNodes(HashSet<Edge> e, int[][] adj, int node, int cweight,
+	public void addNodes(HashSet<Edge> e, int node, int cweight,
 			PriorityQueue<Edge> p, BitSet used) {
 
-//		callsNodes++;
+		// callsNodes++;
 
 		Edge t;
 		HashSet<Edge> temp = new HashSet<Edge>(k);
@@ -207,13 +225,14 @@ public class KMST extends AbstractKMST {
 			temp.addAll(e);
 		}
 
-		addToQueue(p, node, adj, used, cweight);
+		addToQueue(p, node, used, cweight);
 
 		while (!p.isEmpty()) {
 			t = p.poll();
 			w = cweight + t.weight;
 
-			if (w < minWeight && !visited.contains(temp)) {
+			if (w + minSum[k - used.cardinality()] < minWeight
+					&& !visited.contains(temp)) {
 				if (hasNoCircle(used, t.node1, t.node2)) {
 					if (used.get(t.node1)) {
 						newNode = t.node2;
@@ -240,11 +259,10 @@ public class KMST extends AbstractKMST {
 					if (size == k) {
 						updateSolution(temp, w);
 						solutionFound = true;
-
 					} else {
-						addNodes(temp, adj, newNode, w, p, used);
+						addNodes(temp, newNode, w, p, used);
 
-						if (size >= 2 && size < k ) {
+						if (size >= 2 && size < k) {
 							visited.add(temp);
 						}
 
@@ -261,7 +279,7 @@ public class KMST extends AbstractKMST {
 					}
 				}
 			} else {
-				p = new PriorityQueue<Edge>(numEdges);
+				p.clear();
 			}
 		}
 	}
@@ -275,22 +293,23 @@ public class KMST extends AbstractKMST {
 	 *            new weight
 	 */
 	public void updateSolution(HashSet<Edge> minSet, int min) {
-//		callsupdatesolution++;
+		// callsupdatesolution++;
 		minWeight = min;
-//		System.out.println(System.currentTimeMillis() - start + "ms - " + min);
+		// System.out.println(System.currentTimeMillis() - start + "ms - " +
+		// min);
 		setSolution(min, minSet);
 	}
 
-	public void addToQueue(PriorityQueue<Edge> e, int node, int[][] adj,
-			BitSet used, int w) {
-//		callsAddQueue++;
-		Edge it;
-		for (int i = 0; i < numNodes; i++) {
-			if (!used.get(i) && adj[node][i] != 0) {
-				it = new Edge(node, i, adj[node][i]);
-				if (w + it.weight < minWeight && !e.contains(it)) {
-					e.offer(it);
-				}
+	public void addToQueue(PriorityQueue<Edge> e, int node, BitSet used, int w) {
+		// callsAddQueue++;
+
+		Edge ite;
+		Iterator<Edge> it = edgesFromNode[node].iterator();
+		while (it.hasNext()) {
+			ite = it.next();
+			if (!used.get(node == ite.node1 ? ite.node2 : ite.node1)
+					&& w + ite.weight < minWeight && !e.contains(ite)) {
+				e.offer(ite);
 			}
 		}
 	}
