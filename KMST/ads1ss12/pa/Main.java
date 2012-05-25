@@ -28,7 +28,8 @@ public class Main {
 	 * null</code>, wenn von {@link System#in} eingelesen wird.
 	 */
 //	private static String fileName = null;
-	private static String fileName = "tests/input/0003";
+	private static String fileName = "tests/input/0004";
+//	private static String fileName = "tests/input/0005"; // hardcore
 
 	/** Der abgeschnittene Pfad */
 	private static String choppedFileName;
