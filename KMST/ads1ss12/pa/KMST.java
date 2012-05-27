@@ -17,7 +17,7 @@ import java.util.PriorityQueue;
 public class KMST extends AbstractKMST {
 	private ArrayList<Edge>[] edgesFromNode;
 	private HashSet<HashSet<Edge>> visited;
-	private int adjacentMatrix[][];
+	// private int adjacentMatrix[][];
 	private int[] minSum;
 	private int numNodes;
 	private int numEdges;
@@ -46,7 +46,7 @@ public class KMST extends AbstractKMST {
 	 */
 	@SuppressWarnings("unchecked")
 	public KMST(Integer numNodes, Integer numEdges, HashSet<Edge> edges, int k) {
-		this.adjacentMatrix = new int[numNodes][numNodes];
+		// this.adjacentMatrix = new int[numNodes][numNodes];
 		this.numNodes = numNodes;
 		this.numEdges = numEdges;
 		this.k = k;
@@ -59,8 +59,8 @@ public class KMST extends AbstractKMST {
 
 		// Create data structures
 		for (Edge t : edges) {
-			adjacentMatrix[t.node1][t.node2] = t.weight;
-			adjacentMatrix[t.node2][t.node1] = t.weight;
+			// adjacentMatrix[t.node1][t.node2] = t.weight;
+			// adjacentMatrix[t.node2][t.node1] = t.weight;
 			if (edgesFromNode[t.node1] == null) {
 				edgesFromNode[t.node1] = new ArrayList<Edge>(numNodes);
 			}
