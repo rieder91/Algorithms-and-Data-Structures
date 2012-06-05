@@ -3,7 +3,6 @@ package ads1ss12.pa;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.PriorityQueue;
 
 /**
@@ -11,18 +10,18 @@ import java.util.PriorityQueue;
  * Ihre L&ouml;sung implementieren.
  * 
  * @author Thomas Rieder, 1125403
- * @date 2012-05-25
- * @version 1.0
+ * @date 2012-06-05
+ * @version 1.2
  */
 public class KMST extends AbstractKMST {
 	private ArrayList<Edge>[] edgesFromNode;
 	private HashSet<HashSet<Edge>> visited;
-	// private int adjacentMatrix[][];
 	private int[] minSum;
 	private int numNodes;
 	private int numEdges;
 	private int k;
 	private int minWeight = Integer.MAX_VALUE;
+	private int kEdges;
 
 	// Debugging
 	// private long start = System.currentTimeMillis();
@@ -46,21 +45,19 @@ public class KMST extends AbstractKMST {
 	 */
 	@SuppressWarnings("unchecked")
 	public KMST(Integer numNodes, Integer numEdges, HashSet<Edge> edges, int k) {
-		// this.adjacentMatrix = new int[numNodes][numNodes];
 		this.numNodes = numNodes;
 		this.numEdges = numEdges;
 		this.k = k;
-		this.visited = new HashSet<HashSet<Edge>>(numEdges);
-		this.minSum = new int[k + 2];
+		this.kEdges = k - 1;
+		this.visited = new HashSet<HashSet<Edge>>();
+		this.minSum = new int[k];
 		this.edgesFromNode = new ArrayList[numNodes];
 
 		// PriorityQueue for the k cheapest edges
-		PriorityQueue<Edge> min = new PriorityQueue<Edge>(numNodes);
+		PriorityQueue<Edge> min = new PriorityQueue<Edge>(k);
 
 		// Create data structures
 		for (Edge t : edges) {
-			// adjacentMatrix[t.node1][t.node2] = t.weight;
-			// adjacentMatrix[t.node2][t.node1] = t.weight;
 			if (edgesFromNode[t.node1] == null) {
 				edgesFromNode[t.node1] = new ArrayList<Edge>(numNodes);
 			}
@@ -75,8 +72,7 @@ public class KMST extends AbstractKMST {
 		// i use the sum of the k - |V| cheapest edges to determine if a given
 		// graph could ever be better than the minWeight
 		minSum[0] = 0;
-		minSum[1] = 0;
-		for (int i = 2; i < k + 2; i++) {
+		for (int i = 1; i < k; i++) {
 			minSum[i] = minSum[i - 1] + min.poll().weight;
 		}
 	}
@@ -101,7 +97,6 @@ public class KMST extends AbstractKMST {
 		// System.out.println("UpdateSolution: " + callsupdatesolution);
 		// System.out.println("addQueue: " + callsAddQueue);
 		// System.out.println("Adjazenzmatrix: ");
-		// print(adjacentMatrix);
 	}
 
 	/**
@@ -124,13 +119,13 @@ public class KMST extends AbstractKMST {
 		// no backtracking
 		for (Edge e : q) {
 			firstEstimate(new HashSet<Edge>(k), e.node2, 0,
-					new PriorityQueue<Edge>(numEdges), new BitSet(numNodes));
+					new PriorityQueue<Edge>(numEdges), new BitSet(numNodes), 0);
 		}
 
 		// beginning with the best node it enumerates all possible solutions
 		// (branch) and cuts if the graph is useless
 		for (Edge e : q) {
-			addNodes(null, e.node2, 0, null, new BitSet(numNodes));
+			addNodes(null, e.node2, 0, null, new BitSet(numNodes), 0);
 		}
 	}
 
@@ -146,7 +141,7 @@ public class KMST extends AbstractKMST {
 		for (Edge e : edgesFromNode[node]) {
 			ret += e.weight;
 		}
-		return ret;
+		return ret * -1;
 
 	}
 
@@ -186,13 +181,13 @@ public class KMST extends AbstractKMST {
 	 *            bitset of all used nodes in the current solution
 	 */
 	public void firstEstimate(HashSet<Edge> e, int node, int cweight,
-			PriorityQueue<Edge> p, BitSet used) {
+			PriorityQueue<Edge> p, BitSet used, int numEdges) {
 		Edge t;
 		int w, newNode;
 		boolean abort = false, wasEmpty, solutionFound;
 
 		// adds to elements to the edge-queue
-		addToQueue(p, node, used, cweight);
+		addToQueue(p, node, used, cweight, numEdges);
 
 		while (!p.isEmpty() && !abort) {
 			t = p.poll();
@@ -235,13 +230,15 @@ public class KMST extends AbstractKMST {
 						used.set(newNode);
 					}
 
+					int size = used.cardinality();
+
 					// if |V| = k and the solution is better than minWeight, we
 					// update our best solution
-					if (used.cardinality() == k && w < minWeight) {
+					if (size == k && w < minWeight) {
 						updateSolution(e, w);
-					} else {
+					} else if (size < k) {
 						// we need to add more edges
-						firstEstimate(e, newNode, w, p, used);
+						firstEstimate(e, newNode, w, p, used, numEdges + 1);
 					}
 					// removes the used nodes
 					if (!solutionFound) {
@@ -272,7 +269,7 @@ public class KMST extends AbstractKMST {
 	 *            bitset of all used nodes
 	 */
 	public void addNodes(HashSet<Edge> e, int node, int cweight,
-			PriorityQueue<Edge> p, BitSet used) {
+			PriorityQueue<Edge> p, BitSet used, int numEdges) {
 
 		// callsNodes++;
 
@@ -285,7 +282,7 @@ public class KMST extends AbstractKMST {
 		if (p != null) {
 			p = new PriorityQueue<Edge>(p);
 		} else {
-			p = new PriorityQueue<Edge>(numEdges);
+			p = new PriorityQueue<Edge>();
 		}
 
 		if (used != null) {
@@ -297,7 +294,7 @@ public class KMST extends AbstractKMST {
 		}
 
 		// expand node
-		addToQueue(p, node, used, cweight);
+		addToQueue(p, node, used, cweight, numEdges);
 
 		while (!p.isEmpty()) {
 			t = p.poll();
@@ -307,7 +304,7 @@ public class KMST extends AbstractKMST {
 			// |V|) cheapest edges is greater than minWeight, we can abort. we
 			// also stop enumerating if the current graph has been expanded
 			// before
-			if (w + minSum[k - used.cardinality()] < minWeight
+			if (w + minSum[kEdges - numEdges - 1] < minWeight
 					&& !visited.contains(temp)) {
 				// circle check
 				if (hasNoCircle(used, t.node1, t.node2)) {
@@ -342,18 +339,17 @@ public class KMST extends AbstractKMST {
 						solutionFound = true;
 					} else {
 						// we need to expand more
-						addNodes(temp, newNode, w, p, used);
-
-						// if the graph contains more than 2 and less than k
-						// nodes we save it to prevent the repeated enumeration
-						// of the same solutions
-						if (size >= 2 && size < k) {
+						addNodes(temp, newNode, w, p, used, numEdges + 1);
+						// if the graph contains 2 nodes we save it to prevent
+						// the repeated enumeration of the same solutions
+						if (size == 2) {
 							visited.add(temp);
 						}
 
 						temp = new HashSet<Edge>(k);
 						if (e != null) {
 							temp.addAll(e);
+
 						}
 					}
 					// clear nodes
@@ -398,38 +394,24 @@ public class KMST extends AbstractKMST {
 	 * @param w
 	 *            current weight
 	 */
-	public void addToQueue(PriorityQueue<Edge> e, int node, BitSet used, int w) {
-		// callsAddQueue++;
 
+	public void addToQueue(PriorityQueue<Edge> e, int node, BitSet used, int w,
+			int numEdges) {
+		// callsAddQueue++;
 		// we iterate through all adjacent nodes using the adjacency list
-		Edge ite;
-		Iterator<Edge> it = edgesFromNode[node].iterator();
-		while (it.hasNext()) {
-			ite = it.next();
-			// if the expaning node == ite.node1 we check if node2 is used to
-			// prevent a circle and vice verca; the weight of the current graph
-			// + the weight of a possible edge also has to be < minWeight; we
+		for (Edge ite : edgesFromNode[node]) {
+			// if the expaning node == ite.node1 we check if node2 is used
+			// to
+			// prevent a circle and vice verca; the weight of the current
+			// graph
+			// + the weight of a possible edge also has to be < minWeight;
+			// we
 			// also do not allow duplicates in the todo-edge-list
 			if (!used.get(node == ite.node1 ? ite.node2 : ite.node1)
-					&& w + ite.weight < minWeight && !e.contains(ite)) {
+					&& w + ite.weight + minSum[kEdges - numEdges - 1] < minWeight
+					&& !e.contains(ite)) {
 				e.offer(ite);
 			}
 		}
 	}
-
-	/**
-	 * Prints the adjacency matrix
-	 * 
-	 * @param adj
-	 *            Matrix
-	 */
-	public void print(int[][] adj) {
-		for (int i = 0; i < numNodes; i++) {
-			for (int j = 0; j < numNodes; j++) {
-				System.out.print(adj[i][j] + " ");
-			}
-			System.out.println("");
-		}
-	}
-
 }
