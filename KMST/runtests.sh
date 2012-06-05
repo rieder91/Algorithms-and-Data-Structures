@@ -8,3 +8,5 @@ echo "Test Case #4"
 java ads1ss12.pa.Main tests/input/0003
 echo "Test Case #5"
 java ads1ss12.pa.Main tests/input/0004
+echo "Test Case #14"
+java ads1ss12.pa.Main tests/input/0014
