@@ -29,7 +29,7 @@ public class Main {
 	 */
 
 //	private static String fileName = null;
-	private static String fileName = "tests/input/0004";
+	private static String fileName = "tests/input/0014";
 //	private static String fileName = "tests/input/0005"; // hardcore
 
 	/** Der abgeschnittene Pfad */

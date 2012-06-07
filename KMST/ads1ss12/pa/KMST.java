@@ -6,12 +6,15 @@ import java.util.HashSet;
 import java.util.PriorityQueue;
 
 /**
+ * 
  * Klasse zum Berechnen eines k-MST mittels Branch-and-Bound. Hier sollen Sie
  * Ihre L&ouml;sung implementieren.
  * 
+ * WARNING MESSY SOURCE
+ * 
  * @author Thomas Rieder, 1125403
- * @date 2012-06-05
- * @version 1.2
+ * @date 2012-06-07
+ * @version 1.3
  */
 public class KMST extends AbstractKMST {
 	private ArrayList<Edge>[] edgesFromNode;
@@ -22,10 +25,13 @@ public class KMST extends AbstractKMST {
 	private int k;
 	private int minWeight = Integer.MAX_VALUE;
 	private int kEdges;
+	private int limit;
+	private int abort;
 
 	// Debugging
 	// private long start = System.currentTimeMillis();
 	// private int callsNodes = 0;
+
 	// private int callsAddQueue = 0;
 	// private int callshasnocircle = 0;
 	// private int callsupdatesolution = 0;
@@ -52,6 +58,9 @@ public class KMST extends AbstractKMST {
 		this.visited = new HashSet<HashSet<Edge>>();
 		this.minSum = new int[k];
 		this.edgesFromNode = new ArrayList[numNodes];
+		this.limit = numNodes * numNodes;
+		this.abort = 0;
+		// System.out.println("using recursion limit:" + limit);
 
 		// PriorityQueue for the k cheapest edges
 		PriorityQueue<Edge> min = new PriorityQueue<Edge>(k);
@@ -122,15 +131,34 @@ public class KMST extends AbstractKMST {
 					new PriorityQueue<Edge>(numEdges), new BitSet(numNodes), 0);
 		}
 
+		// System.out.println(callsNodes);
+		// System.out.println("starting with limited enum");
+		// beginning with the best node it enumerates all possible solutions
+		// (branch) until the recursion limit is reached and cuts if the graph
+		// is useless
+		for (Edge e : q) {
+			addNodesAbort(null, e.node2, 0, null, new BitSet(numNodes), 0);
+			abort = 0;
+
+		}
+
+		// System.out.println(callsNodes);
+		// System.out.println(System.currentTimeMillis() - start);
+
+		visited.clear();
+
+		// System.out.println("starting with full enum");
 		// beginning with the best node it enumerates all possible solutions
 		// (branch) and cuts if the graph is useless
 		for (Edge e : q) {
 			addNodes(null, e.node2, 0, null, new BitSet(numNodes), 0);
+
 		}
 	}
 
 	/**
-	 * Returns the sum of all edges adjacent to a node
+	 * Returns the sum * -1 (because of reverse sorting) of all edges adjacent
+	 * to a node
 	 * 
 	 * @param node
 	 *            Node of which the edge-sum is calculated
@@ -298,12 +326,14 @@ public class KMST extends AbstractKMST {
 
 		while (!p.isEmpty()) {
 			t = p.poll();
+
 			w = cweight + t.weight;
 
 			// if the weight of the current graph plus the weight of the (k -
 			// |V|) cheapest edges is greater than minWeight, we can abort. we
 			// also stop enumerating if the current graph has been expanded
 			// before
+
 			if (w + minSum[kEdges - numEdges - 1] < minWeight
 					&& !visited.contains(temp)) {
 				// circle check
@@ -361,7 +391,110 @@ public class KMST extends AbstractKMST {
 					}
 				}
 			} else {
-				p.clear();
+				// p.clear();
+				break;
+			}
+		}
+	}
+
+	public void addNodesAbort(HashSet<Edge> e, int node, int cweight,
+			PriorityQueue<Edge> p, BitSet used, int numEdges) {
+
+		// callsNodes++;
+		abort++;
+
+		Edge t;
+		HashSet<Edge> temp = new HashSet<Edge>(k);
+		int w, newNode, size;
+		boolean wasEmpty, solutionFound;
+
+		// clone
+		if (p != null) {
+			p = new PriorityQueue<Edge>(p);
+		} else {
+			p = new PriorityQueue<Edge>();
+		}
+
+		if (used != null) {
+			used = (BitSet) used.clone();
+		}
+
+		if (e != null) {
+			temp.addAll(e);
+		}
+
+		// expand node
+		addToQueue(p, node, used, cweight, numEdges);
+
+		while (!p.isEmpty() && abort < limit) {
+			t = p.poll();
+
+			w = cweight + t.weight;
+
+			// if the weight of the current graph plus the weight of the (k -
+			// |V|) cheapest edges is greater than minWeight, we can abort. we
+			// also stop enumerating if the current graph has been expanded
+			// before
+
+			if (w + minSum[kEdges - numEdges - 1] < minWeight
+					&& !visited.contains(temp)) {
+				// circle check
+				if (hasNoCircle(used, t.node1, t.node2)) {
+					if (used.get(t.node1)) {
+						// node1 is part of the graph => node2 is new
+						newNode = t.node2;
+						node = t.node1;
+					} else {
+						newNode = t.node1;
+						node = t.node2;
+					}
+
+					temp.add(t);
+
+					wasEmpty = false;
+					solutionFound = false;
+					if (used.isEmpty()) {
+						// first edge
+						used.set(newNode);
+						used.set(node);
+						wasEmpty = true;
+					} else {
+						used.set(newNode);
+					}
+
+					// number of used nodes
+					size = used.cardinality();
+
+					if (size == k) {
+						// new best solution found
+						updateSolution(temp, w);
+						solutionFound = true;
+					} else {
+						// we need to expand more
+						addNodesAbort(temp, newNode, w, p, used, numEdges + 1);
+						// if the graph contains 2 nodes we save it to prevent
+						// the repeated enumeration of the same solutions
+						if (size == 2) {
+							visited.add(temp);
+						}
+
+						temp = new HashSet<Edge>(k);
+						if (e != null) {
+							temp.addAll(e);
+
+						}
+					}
+					// clear nodes
+					if (!solutionFound) {
+						used.clear(newNode);
+						if (wasEmpty) {
+							used.clear(node);
+						}
+					}
+				}
+			} else {
+				// p.clear();
+				break;
 			}
 		}
 	}
