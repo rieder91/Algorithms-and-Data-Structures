@@ -13,7 +13,7 @@ import java.util.PriorityQueue;
  * 
  * @author Thomas Rieder, 1125403
  * @date 2012-06-08
- * @version 1.4
+ * @version 1.5
  */
 public class KMST extends AbstractKMST {
 	private ArrayList<Edge>[] edgesFromNode;
@@ -30,7 +30,7 @@ public class KMST extends AbstractKMST {
 	private boolean limited;
 
 	// Debugging
-	private boolean debugging = true;
+	private boolean debugging = false;
 	private long start = System.currentTimeMillis();
 	private int callsNodes = 0;
 
@@ -60,7 +60,7 @@ public class KMST extends AbstractKMST {
 		this.limited = true;
 
 		// sane limit for most graphs
-		this.limit = numNodes * numNodes;
+		this.limit = 2 * numNodes * numNodes;
 
 		if (debugging)
 			System.out.println("using recursion limit: " + limit);
@@ -122,11 +122,15 @@ public class KMST extends AbstractKMST {
 			}
 		}
 
+		// clone node queues
+		PriorityQueue<Edge> q_prim = new PriorityQueue<Edge>(q);
+		PriorityQueue<Edge> q_limited = new PriorityQueue<Edge>(q);
+
 		// fast upper bound
 		// estimate to determine a good upper bound - modified prims algorithm
 		// no backtracking
-		for (Edge e : q) {
-			firstEstimate(new HashSet<Edge>(k), e.node2, 0,
+		while (!q_prim.isEmpty()) {
+			firstEstimate(new HashSet<Edge>(k), q_prim.poll().node2, 0,
 					new PriorityQueue<Edge>(numEdges), new BitSet(numNodes), 0);
 		}
 
@@ -134,8 +138,9 @@ public class KMST extends AbstractKMST {
 		// beginning with the best node it enumerates all possible solutions
 		// (branch) until the recursion limit is reached and cuts if the graph
 		// is useless
-		for (Edge e : q) {
-			addNodes(null, e.node2, 0, null, new BitSet(numNodes), 0);
+		while (!q_limited.isEmpty()) {
+			addNodes(null, q_limited.poll().node2, 0, null,
+					new BitSet(numNodes), 0);
 			abort = 0;
 		}
 
@@ -146,8 +151,8 @@ public class KMST extends AbstractKMST {
 		// full enum
 		// beginning with the best node it enumerates all possible solutions
 		// (branch) and cuts if the graph is useless
-		for (Edge e : q) {
-			addNodes(null, e.node2, 0, null, new BitSet(numNodes), 0);
+		while (!q.isEmpty()) {
+			addNodes(null, q.poll().node2, 0, null, new BitSet(numNodes), 0);
 		}
 	}
 
@@ -218,9 +223,9 @@ public class KMST extends AbstractKMST {
 			// it entirely - very unlikely
 			if (t.weight >= minWeight) {
 				edgesFromNode[t.node1].remove(edgesFromNode[t.node1]
-				                                            .get(t.node2));
+						.get(t.node2));
 				edgesFromNode[t.node2].remove(edgesFromNode[t.node2]
-				                                            .get(t.node1));
+						.get(t.node1));
 			} else {
 				w = cweight + t.weight;
 
@@ -366,6 +371,7 @@ public class KMST extends AbstractKMST {
 						// new best solution found
 						updateSolution(temp, w);
 						solutionFound = true;
+						abort = 0;
 					} else {
 						// we need to expand more
 						addNodes(temp, newNode, w, p, used, numEdges + 1);
@@ -412,6 +418,21 @@ public class KMST extends AbstractKMST {
 					+ min);
 	}
 
+	/**
+	 * adds all nodes adjacent to @param node to the queue @param e; perform
+	 * validity checks
+	 * 
+	 * @param e
+	 *            queue that the nodes are added to
+	 * @param node
+	 *            seed node
+	 * @param used
+	 *            list of used nodes
+	 * @param w
+	 *            current weight of the graph
+	 * @param numEdges
+	 *            current number of edges
+	 */
 	public void addToQueue(PriorityQueue<Edge> e, int node, BitSet used, int w,
 			int numEdges) {
 		// we iterate through all adjacent nodes using the adjacency list
