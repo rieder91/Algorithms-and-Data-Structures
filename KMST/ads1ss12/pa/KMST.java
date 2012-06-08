@@ -30,7 +30,7 @@ public class KMST extends AbstractKMST {
 	private boolean limited;
 
 	// Debugging
-	private boolean debugging = false;
+	private boolean debugging = true;
 	private long start = System.currentTimeMillis();
 	private int callsNodes = 0;
 
